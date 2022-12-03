@@ -10,7 +10,7 @@ class youtube ():
         self.YOUTUBE_VIDEO_URL = 'https://www.youtube.com/watch?v={youtube_id}'
         self.USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
         self.SORT_BY_POPULAR = 0
-        self.SORT_BY_RECENT = 1
+        self.SORT_BY_RECENT = 0
         self.YT_CFG_RE = r'ytcfg\.set\s*\(\s*({.+?})\s*\)\s*;'
         self.YT_INITIAL_DATA_RE = r'(?:window\s*\[\s*["\']ytInitialData["\']\s*\]|ytInitialData)\s*=\s*({.+?})\s*;\s*(?:var\s+meta|</script|\n)'
         self.INDENT = 4
@@ -65,14 +65,14 @@ class youtube ():
 
             for comment in reversed(list(self.search_dict(response, 'commentRenderer'))):
                 result = {'cid': comment['commentId'],
-                        'text': ''.join([c['text'] for c in comment['contentText'].get('runs', [])]),}
-                        # 'time': comment['publishedTimeText']['runs'][0]['text'],
-                        # 'author': comment.get('authorText', {}).get('simpleText', ''),
-                        # 'channel': comment['authorEndpoint']['browseEndpoint'].get('browseId', ''),
-                        # 'votes': comment.get('voteCount', {}).get('simpleText', '0'),
-                        # 'photo': comment['authorThumbnail']['thumbnails'][-1]['url'],
-                        # 'heart': next(self.search_dict(comment, 'isHearted'), False),
-                        # 'reply': '.' in comment['commentId']}
+                        'text': ''.join([c['text'] for c in comment['contentText'].get('runs', [])]),
+                        'time': comment['publishedTimeText']['runs'][0]['text'],
+                        'author': comment.get('authorText', {}).get('simpleText', ''),
+                        'channel': comment['authorEndpoint']['browseEndpoint'].get('browseId', ''),
+                        'votes': comment.get('voteCount', {}).get('simpleText', '0'),
+                        'photo': comment['authorThumbnail']['thumbnails'][-1]['url'],
+                        'heart': next(self.search_dict(comment, 'isHearted'), False),
+                        'reply': '.' in comment['commentId']}
 
                 try:
                     result['time_parsed'] = dateparser.parse(result['time'].split('(')[0].strip()).timestamp()
@@ -135,6 +135,10 @@ class youtube ():
         padding = ' ' * (2 * indent) if indent else ''
         return ''.join(padding + line for line in comment_str.splitlines(True))
     def main(self):
+        import sqlite3
+        con = sqlite3.connect("yt.db")
+        cur = con.cursor()
+        
         # parser = argparse.ArgumentParser(add_help=False,
         #                                 description='Download Youtube comments without using the Youtube API')
         # parser.add_argument('--url', '-u', help='Youtube URL for which to download the comments')
@@ -170,5 +174,10 @@ class youtube ():
         except Exception as e:
             print('Error:', str(e))
             sys.exit(1)
-        return real_dic
-print(youtube('https://www.youtube.com/watch?v=kJQP7kiw5Fk',10000).main())
+        for i in range(len(real_dic)):
+            cur.execute("INSERT INTO yt VALUES(?,?,?,?,?,?,?,?,?,?)",(real_dic[i]['_id'],real_dic[i]['text'],real_dic[i]['time'],real_dic[i]['author'],real_dic[i]['channel'],real_dic[i]['votes'],real_dic[i]['photo'],real_dic[i]['heart'],real_dic[i]['reply'],real_dic[i]['time_parsed']))
+        con.commit()
+        con.close()
+    
+
+youtube('https://www.youtube.com/watch?v=kJQP7kiw5Fk',1).main()
